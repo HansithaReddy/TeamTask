@@ -1,0 +1,27 @@
+{
+  "name": "task-manager-firebase-ui-premium",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "firebase": "^10.12.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.14.1",
+    "react-hook-form": "^7.47.1",
+    "recharts": "^2.6.2",
+    "uuid": "^9.0.0",
+    "framer-motion": "^10.12.16"
+  },
+  "devDependencies": {
+    "vite": "^5.2.0",
+    "tailwindcss": "^3.4.10",
+    "postcss": "^8.4.26",
+    "autoprefixer": "^10.4.14"
+  }
+}
