@@ -26,21 +26,6 @@ A sleek, responsive task management application built with React, Firebase, and 
    npm run dev
    ```
 
-## 💡 Technical Highlights
-
-- **Frontend**: React with Vite for fast development
-- **Styling**: Tailwind CSS for responsive design
-- **Animations**: Framer Motion for smooth transitions
-- **Backend**: Firebase (Auth & Firestore)
-- **Deployment**: Vercel-ready configuration
-
-## 📱 Mobile Responsive
-
-Fully responsive design that works seamlessly on:
-- 💻 Desktop
-- 📱 Mobile
-- 📟 Tablets
-
 ## ✨ Key Features
 
 ### 🔐 User Management
@@ -69,6 +54,21 @@ Fully responsive design that works seamlessly on:
 - Priority distribution charts
 - Time tracking
 
+## 💡 Technical Highlights
+
+- **Frontend**: React with Vite for fast development
+- **Styling**: Tailwind CSS for responsive design
+- **Animations**: Framer Motion for smooth transitions
+- **Backend**: Firebase (Auth & Firestore)
+- **Deployment**: Vercel-ready configuration
+
+## 📱 Mobile Responsive
+
+Fully responsive design that works seamlessly on:
+- 💻 Desktop
+- 📱 Mobile
+- 📟 Tablets
+  
 ## 📨 Email Notifications (Optional)
 
 TeamTask includes optional email notifications for task assignments:
