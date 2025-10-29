@@ -2,15 +2,15 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// TODO: replace with your firebase config
+// Use environment variables for Firebase config
 const firebaseConfig = {
-  apiKey: "AIzaSyBg-5hvcfjvmK8qsmmGWPmmxW2n6wG7NCM",
-  authDomain: "task-manager-d8cd4.firebaseapp.com",
-  projectId: "task-manager-d8cd4",
-  storageBucket: "task-manager-d8cd4.firebasestorage.app",
-  messagingSenderId: "565701396437",
-  appId: "1:565701396437:web:0756e62cc091c84dacdf5c",
-  measurementId: "G-RMWC8ZELZH"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 const app = initializeApp(firebaseConfig);
