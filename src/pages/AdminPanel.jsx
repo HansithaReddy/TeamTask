@@ -180,9 +180,9 @@ export default function AdminPanel(){
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Toast show={toast.show} message={toast.message} type={toast.type} onClose={()=>setToast({show:false,message:'',type:toast.type})} />
       <Navbar />
-      <div className="flex">
+      <div className="flex flex-col lg:flex-row">
         <Sidebar />
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-4 sm:p-6">
           <h2 className="text-xl font-semibold">Admin Panel</h2>
           <div className="mt-8">
             <div className="mb-6">
@@ -190,8 +190,8 @@ export default function AdminPanel(){
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Add a new task and assign it to team members</p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-6">
-              <div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 sm:gap-x-6 gap-y-4">
+              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Task Title
                 </label>
@@ -240,6 +240,7 @@ export default function AdminPanel(){
                   type="datetime-local"
                   value={form.due}
                   onChange={e=>setForm({...form, due: e.target.value})}
+                  min={new Date().toISOString().slice(0, 16)}
                   className="w-full p-3 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-shadow"
                 />
               </div>
@@ -286,38 +287,77 @@ export default function AdminPanel(){
           </div>
 
           <div className="mt-6">
-            <div className="flex items-center justify-between mb-2 gap-4">
-              <h3 className="text-lg font-medium">All Tasks</h3>
-              <div className="flex items-center gap-2">
-                <select value={assignTo} onChange={e=>setAssignTo(e.target.value)} className="p-2 rounded border">
-                  <option value="">Assign selected to...</option>
-                  {users.map(u=> <option key={u.id} value={u.id}>{u.name}</option>)}
-                </select>
-                <button onClick={bulkAssign} className="px-3 py-1 rounded bg-blue-100 text-blue-700">Assign</button>
-                <button onClick={()=>exportCSV(false)} className="px-3 py-1 rounded border">Export CSV</button>
-                <button onClick={()=>exportCSV(true)} className="px-3 py-1 rounded border">Export selected CSV</button>
-                <button onClick={deleteSelected} className="px-3 py-1 rounded bg-red-100 text-red-700">Delete selected</button>
-                <div className="text-sm text-muted">{tasks.length} total</div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
+              <div className="flex items-center justify-between w-full sm:w-auto">
+                <h3 className="text-lg font-medium">All Tasks</h3>
+                <div className="text-sm text-muted sm:ml-4">{tasks.length} total</div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <select value={assignTo} onChange={e=>setAssignTo(e.target.value)} className="flex-1 sm:flex-none p-2 text-sm rounded border dark:bg-gray-800 dark:border-gray-700">
+                    <option value="">Assign selected to...</option>
+                    {users.map(u=> <option key={u.id} value={u.id}>{u.name}</option>)}
+                  </select>
+                  <button onClick={bulkAssign} className="px-3 py-2 text-sm rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50">Assign</button>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="dropdown relative">
+                    <button className="px-3 py-2 text-sm rounded border dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                      Export
+                      <span className="ml-1">▼</span>
+                    </button>
+                    <div className="hidden hover:block focus:block absolute right-0 mt-2 w-48 rounded-lg shadow-lg bg-white dark:bg-gray-800 border dark:border-gray-700">
+                      <button onClick={()=>exportCSV(false)} className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700">Export All Tasks</button>
+                      <button onClick={()=>exportCSV(true)} className="block w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700">Export Selected Tasks</button>
+                    </div>
+                  </div>
+                  <button onClick={deleteSelected} className="px-3 py-2 text-sm rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50">Delete Selected</button>
+                </div>
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow">
               <table className="w-full table-auto text-sm">
                 <thead>
-                  <tr className="text-left">
-                    <th className="p-2 w-12"> <input type="checkbox" onChange={e=> setSelected(e.target.checked ? tasks.map(t=>t.id) : [])} checked={selected.length===tasks.length && tasks.length>0} /> </th>
-                    <th className="p-2 w-48 cursor-pointer" onClick={()=>changeSort('title')}>Title {sortBy==='title' ? (sortDir==='asc'?'▲':'▼') : ''}</th>
-                    <th className="p-2 w-48 cursor-pointer" onClick={()=>changeSort('assignees')}>Assignees {sortBy==='assignees' ? (sortDir==='asc'?'▲':'▼') : ''}</th>
-                    <th className="p-2 w-56 cursor-pointer" onClick={()=>changeSort('due')}>Due {sortBy==='due' ? (sortDir==='asc'?'▲':'▼') : ''}</th>
-                    <th className="p-2 w-32 cursor-pointer" onClick={()=>changeSort('priority')}>Priority {sortBy==='priority' ? (sortDir==='asc'?'▲':'▼') : ''}</th>
-                    <th className="p-2 w-32 cursor-pointer" onClick={()=>changeSort('status')}>Status {sortBy==='status' ? (sortDir==='asc'?'▲':'▼') : ''}</th>
-                    <th className="p-2 w-32">Actions</th>
+                  <tr className="text-left bg-gray-50 dark:bg-gray-900">
+                    <th className="p-2 w-12 sticky left-0 bg-gray-50 dark:bg-gray-900"> 
+                      <input type="checkbox" 
+                        onChange={e=> setSelected(e.target.checked ? tasks.map(t=>t.id) : [])} 
+                        checked={selected.length===tasks.length && tasks.length>0} 
+                      /> 
+                    </th>
+                    <th className="p-2 w-48 cursor-pointer whitespace-nowrap" onClick={()=>changeSort('title')}>
+                      <div className="flex items-center gap-1">
+                        Title {sortBy==='title' ? (sortDir==='asc'?'▲':'▼') : ''}
+                      </div>
+                    </th>
+                    <th className="p-2 w-48 cursor-pointer hidden sm:table-cell" onClick={()=>changeSort('assignees')}>
+                      <div className="flex items-center gap-1">
+                        Assignees {sortBy==='assignees' ? (sortDir==='asc'?'▲':'▼') : ''}
+                      </div>
+                    </th>
+                    <th className="p-2 w-56 cursor-pointer hidden md:table-cell" onClick={()=>changeSort('due')}>
+                      <div className="flex items-center gap-1">
+                        Due {sortBy==='due' ? (sortDir==='asc'?'▲':'▼') : ''}
+                      </div>
+                    </th>
+                    <th className="p-2 w-32 cursor-pointer hidden sm:table-cell" onClick={()=>changeSort('priority')}>
+                      <div className="flex items-center gap-1">
+                        Priority {sortBy==='priority' ? (sortDir==='asc'?'▲':'▼') : ''}
+                      </div>
+                    </th>
+                    <th className="p-2 w-32 cursor-pointer" onClick={()=>changeSort('status')}>
+                      <div className="flex items-center gap-1">
+                        Status {sortBy==='status' ? (sortDir==='asc'?'▲':'▼') : ''}
+                      </div>
+                    </th>
+                    <th className="p-2 w-32 sticky right-0 bg-gray-50 dark:bg-gray-900">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {sortedTasks.map(t => (
-                    <tr key={t.id} className="border-t">
-                      <td className="p-2 align-top">
+                    <tr key={t.id} className="border-t hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                      <td className="p-2 align-top sticky left-0 bg-white dark:bg-gray-800">
                         <input type="checkbox" checked={selected.includes(t.id)} onChange={()=>toggleSelect(t.id)} />
                       </td>
                       <td className="p-2 align-top">
@@ -368,6 +408,7 @@ export default function AdminPanel(){
                               ...prev,
                               [t.id]: { ...prev[t.id], due: e.target.value }
                             }))}
+                            min={new Date().toISOString().slice(0, 16)}
                             className="p-1 rounded border"
                           />
                         ) : (

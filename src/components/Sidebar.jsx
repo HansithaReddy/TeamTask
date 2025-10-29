@@ -50,28 +50,67 @@ export default function Sidebar(){
     return location.pathname.startsWith(path)
   }
 
-  return (
-    <motion.aside initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-72 p-6 sidebar-hidden-mobile">
-      <div className="glass p-4 rounded-2xl">
-        <div className="text-sm text-muted">Welcome</div>
-        <div className="font-semibold text-lg">{user?.name}</div>
-      </div>
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
-      <nav className="mt-6">
-        <ul className="space-y-2">
-          {navItems.map(item => {
-            const active = isActive(item.to)
-            return (
-              <li key={item.to}>
-                <Link to={item.to} className={`p-3 rounded-md flex items-center gap-3 smooth transition-colors ${active ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 font-semibold' : 'hover:shadow hover:bg-gray-50 dark:hover:bg-gray-800/50'}`}>
-                  {item.icon}
-                  <span className="text-sm">{item.label}</span>
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
-      </nav>
-    </motion.aside>
+  return (
+    <>
+      <button 
+        onClick={() => setMobileMenuOpen(true)}
+        className="lg:hidden fixed bottom-4 right-4 z-50 p-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      <motion.aside 
+        initial={{ opacity: 0 }} 
+        animate={{ opacity: 1 }} 
+        className={`${mobileMenuOpen ? 'fixed inset-0 z-40 bg-black/50' : 'hidden'} lg:block lg:static lg:bg-transparent lg:w-72 p-6`}
+      >
+        <div className={`${mobileMenuOpen ? 'fixed right-0 inset-y-0 bg-white dark:bg-gray-900 w-72 p-6 shadow-xl' : ''} lg:static lg:shadow-none lg:w-auto`}>
+          <div className="flex justify-between items-center lg:hidden mb-6">
+            <h2 className="font-semibold text-xl">Menu</h2>
+            <button 
+              onClick={() => setMobileMenuOpen(false)}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="glass p-4 rounded-2xl">
+            <div className="text-sm text-muted">Welcome</div>
+            <div className="font-semibold text-lg">{user?.name}</div>
+          </div>
+
+          <nav className="mt-6">
+            <ul className="space-y-2">
+              {navItems.map(item => {
+                const active = isActive(item.to)
+                return (
+                  <li key={item.to}>
+                    <Link 
+                      to={item.to} 
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`p-3 rounded-md flex items-center gap-3 smooth transition-colors ${
+                        active 
+                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 font-semibold' 
+                          : 'hover:shadow hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                      }`}
+                    >
+                      {item.icon}
+                      <span className="text-sm">{item.label}</span>
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          </nav>
+        </div>
+      </motion.aside>
+    </>
   )
 }
