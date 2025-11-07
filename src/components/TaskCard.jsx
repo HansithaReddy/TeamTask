@@ -4,6 +4,8 @@ import useAuth from '../hooks/useAuth'
 import { motion } from 'framer-motion'
 
 export default function TaskCard({ task, onUpdate, onDelete, onComment }){
+  if (!task) return null;
+  
   const { user } = useAuth()
   const [comment, setComment] = useState('')
 
@@ -23,7 +25,13 @@ export default function TaskCard({ task, onUpdate, onDelete, onComment }){
   return (
     <motion.div 
       whileHover={{ y: -8, boxShadow: '0 8px 32px 0 rgba(31, 41, 55, 0.15)' }}
-      className="card p-6 rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-md hover:shadow-xl transition-all duration-200 group"
+      className={`card p-6 rounded-2xl shadow-md hover:shadow-xl transition-all duration-200 group relative 
+        before:absolute before:inset-0 before:rounded-2xl before:border-2 before:border-blue-500/50 before:transition-all
+        hover:before:border-blue-500 hover:before:scale-[1.02] ${
+        task.taskType === 'group' || task.taskType === 'custom'
+        ? 'bg-purple-50 dark:bg-purple-900/10'
+        : 'bg-blue-50 dark:bg-blue-900/10'
+      }`}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
@@ -52,6 +60,21 @@ export default function TaskCard({ task, onUpdate, onDelete, onComment }){
               </svg>
               <span>Assigned by: {task.assignedBy || 'Unknown'}</span>
             </div>
+            {task.taskType === 'individual' ? (
+              <div className="flex items-center gap-1">
+                <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span>Assignee: {task.assigneeName || 'Unassigned'}</span>
+              </div>
+            ) : (task.taskType === 'group' || task.taskType === 'custom') ? (
+              <div className="flex items-center gap-1">
+                <svg className="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <span>Members: {task.assigneeNames}</span>
+              </div>
+            ) : null}
 
           </div>
         </div>
@@ -83,15 +106,24 @@ export default function TaskCard({ task, onUpdate, onDelete, onComment }){
             <div key={c.id} className="p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50">
               <p className="text-xs">{c.text}</p>
               <div className="mt-1 flex items-center gap-2 text-[10px] text-gray-400">
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                {new Date(c.createdAt).toLocaleString()}
+                <div className="flex items-center gap-2">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <span>{c.authorName || 'Unknown'}</span>
+                </div>
+                <span>•</span>
+                <div className="flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>{new Date(c.createdAt).toLocaleString()}</span>
+                </div>
               </div>
             </div>
           ))}
         </div>
-        {task.assignee === user?.id && (
+        {(task.taskType === 'group' || task.taskType === 'custom' || (task.taskType === 'individual' && task.assignee === user?.id)) && (
           <div className="mt-3 flex gap-2">
             <input 
               value={comment} 
@@ -115,5 +147,5 @@ export default function TaskCard({ task, onUpdate, onDelete, onComment }){
         </div>
       )}
     </motion.div>
-  )
+  );
 }

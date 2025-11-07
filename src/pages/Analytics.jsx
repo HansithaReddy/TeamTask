@@ -16,9 +16,10 @@ export default function Analytics(){
 
   useEffect(()=>{
     let mounted = true
+    if (!user) return () => { mounted = false }
     ;(async ()=>{
       try{
-        const [t, a, u] = await Promise.all([api.getTasks(), api.getActivity(), api.getUsers()])
+        const [t, a, u] = await Promise.all([api.getTasks(user.groupId), api.getActivity(), api.getUsers(user.groupId)])
         if(!mounted) return
         setTasks(t)
         setActivities(a)
@@ -31,7 +32,7 @@ export default function Analytics(){
       }
     })()
     return ()=> mounted = false
-  }, [])
+  }, [user])
 
   // compute metrics
   // For admin: all tasks, for user: only their tasks

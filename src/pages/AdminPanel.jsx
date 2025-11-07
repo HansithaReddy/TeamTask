@@ -4,13 +4,16 @@ import api from '../services/api.firebase'
 import Sidebar from '../components/Sidebar'
 import Navbar from '../components/Navbar'
 import Toast from '../components/Toast'
+import Select from 'react-select'
 
 export default function AdminPanel(){
   const { user } = useAuth()
   const [users, setUsers] = useState([])
+  const [groupsList, setGroupsList] = useState([])
   const [tasks, setTasks] = useState([])
+  const [filterType, setFilterType] = useState('all')
   const [activity, setActivity] = useState([])
-  const [form, setForm] = useState({ title:'', desc:'', assignee:'', due: '', priority: 'medium' })
+  const [form, setForm] = useState({ title:'', desc:'', assignee:'', assignees: [], due: '', priority: 'medium', taskType: 'individual', groupId: '' })
   const [userForm, setUserForm] = useState({ name: '', email: '', role: 'user' })
   const [error, setError] = useState('')
   const [selected, setSelected] = useState([])
@@ -21,47 +24,113 @@ export default function AdminPanel(){
   const [assignTo, setAssignTo] = useState('')
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false)
   const [editing, setEditing] = useState({})
+  // derive available groups (id + name) from groupsList
+  const groupOptions = groupsList.map(g => ({ value: g.id, label: g.name || g.id }))
 
   useEffect(()=>{
+    // Make task and user loading group-aware. Wait for user to be available.
     let unsub
+    if (!user) return
     ;(async ()=>{
-      const us = await api.getUsers()
+      const us = await api.getUsers()  // Remove groupId filter for admin panel
+      console.log('Loaded users:', us)  // Debug log
       setUsers(us)
+      // load groups so we can show group names instead of ids
+      try{
+        const gl = await api.getGroups()
+        setGroupsList(gl)
+      }catch(e){ console.warn('Could not load groups', e) }
+      // initialize form.groupId from current user or available users
+      setForm(prev => ({ ...prev, groupId: prev.groupId || user?.groupId || (us[0]?.groupId || '') }))
       setActivity(await api.getActivity())
       // subscribe to real-time tasks updates so admin edits propagate to users
-      unsub = api.onTasksChanged(items => setTasks(items.map(it => ({ 
+      // Admins should see all tasks; regular users see only their group
+      if (user && user.role === 'admin') {
+        unsub = api.onTasksChanged(items => setTasks(items.map(it => ({ 
+          ...it,
+          taskType: it.taskType || 'individual', // ensure taskType exists for filtering
+          assignees: it.assignees || (it.assignee ? [it.assignee] : []),
+          assigneeNames: (it.assignees || [it.assignee]).map(id => us.find(u => u.id === id)?.name || '').filter(Boolean).join(', ')
+        }))))
+      } else {
+        unsub = api.onTasksChanged(user.groupId, items => setTasks(items.map(it => ({ 
         ...it,
-        // Convert old single assignee to array if needed
-        assignees: it.assignees || (it.assignee ? [it.assignee] : []),
-        // Map assignee IDs to names
-        assigneeNames: (it.assignees || [it.assignee]).map(id => us.find(u => u.id === id)?.name || '').filter(Boolean).join(', ')
-      }))))
+          taskType: it.taskType || 'individual', // ensure taskType exists for filtering
+          // Convert old single assignee to array if needed
+          assignees: it.assignees || (it.assignee ? [it.assignee] : []),
+          // Map assignee IDs to names
+          assigneeNames: (it.assignees || [it.assignee]).map(id => us.find(u => u.id === id)?.name || '').filter(Boolean).join(', ')
+        }))))
+      }
     })()
     return () => { if (unsub) unsub() }
-  }, [])
+  }, [user])
 
   const create = async () => {
     setError('')
-    if (!form.title || !form.assignee) {
-      setError('Please provide a title and select an assignee.')
+    if (!form.title) {
+      setError('Please provide a title')
+      return
+    }
+    if (!user || !user.groupId) {
+      setError('Your account is not associated with a group. Cannot create group-scoped task.')
       return
     }
     try {
-      const assigneeProfile = users.find(u => u.id === form.assignee)
-      const assigneeName = assigneeProfile ? assigneeProfile.name : ''
+      const selectedGroupId = form.groupId || user?.groupId
+      let assigneeProfiles
+      let assigneeNames
+      let assigneeEmails
+      if (form.taskType === 'individual') {
+        const profile = users.find(u => u.id === form.assignee)
+        assigneeProfiles = [profile]
+        assigneeNames = profile ? [profile.name] : ['']
+        assigneeEmails = profile ? [profile.email] : ['']
+      } else if (form.taskType === 'group') {
+        // group task: use selected group's member list instead of manual selection
+        if (!selectedGroupId) {
+          setError('Please select a group for the group task')
+          return
+        }
+        const group = groupsList.find(g => g.id === selectedGroupId)
+        const memberIds = (group && group.members) ? group.members : []
+        if (memberIds.length < 2) {
+          setError('Selected group must have at least 2 members')
+          return
+        }
+        assigneeProfiles = memberIds.map(id => users.find(u => u.id === id)).filter(Boolean)
+        assigneeNames = assigneeProfiles.map(p => p.name)
+        assigneeEmails = assigneeProfiles.map(p => p.email)
+        // set form.assignees for payload
+        form.assignees = memberIds
+      } else if (form.taskType === 'custom') {
+        const memberIds = (form.assignees || [])
+        if (!memberIds || memberIds.length < 1) {
+          setError('Select at least one user to assign the task')
+          return
+        }
+        assigneeProfiles = memberIds.map(id => users.find(u => u.id === id)).filter(Boolean)
+        assigneeNames = assigneeProfiles.map(p => p.name)
+        assigneeEmails = assigneeProfiles.map(p => p.email)
+      }
+
       const payload = {
         ...form,
         status: 'To Do',
         createdBy: user.id,
         assignedBy: user.name,
-        assigneeName,
-        assignee: form.assignee,
-        assigneeEmail: assigneeProfile?.email || ''
+        taskType: form.taskType,
+        assigneeNames: assigneeNames.join(', '),
+        assignees: form.taskType === 'individual' ? [form.assignee] : form.assignees,
+        assigneeEmails,
+        groupId: form.taskType === 'group' ? selectedGroupId : null,
+        task_members: form.taskType === 'individual' ? [form.assignee] : form.assignees
       }
+      
       const t = await api.createTask(payload)
       setTasks(prev => [{ id: t.id, ...payload }, ...prev])
       setToast({ show: true, message: 'Task created', type: 'success' })
-      setForm({ title:'', desc:'', assignee:'', due: '', priority: 'medium' })
+  setForm({ title:'', desc:'', assignee:'', assignees: [], due: '', priority: 'medium', taskType: 'individual', groupId: user?.groupId || '' })
     } catch (e) {
       console.error(e)
       setError(e.message || 'Failed to create task')
@@ -85,9 +154,35 @@ export default function AdminPanel(){
     try {
       const task = editing[id]
       if (!task) return
-      const assigneeNames = task.assignees.map(id => users.find(u => u.id === id)?.name || '').filter(Boolean).join(', ')
-      await api.updateTask(id, { ...task, assigneeNames })
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, ...task, assigneeNames } : t))
+      
+      // Validate assignees depending on task type
+      if (task.taskType === 'group' && (!task.assignees || task.assignees.length < 2)) {
+        setToast({ show: true, message: 'Group tasks must have at least 2 members', type: 'error' })
+        return
+      }
+      if (task.taskType === 'custom' && (!task.assignees || task.assignees.length < 1)) {
+        setToast({ show: true, message: 'Custom tasks must have at least 1 assignee', type: 'error' })
+        return
+      }
+      // For individual tasks, ensure assignee is set
+      if (task.taskType === 'individual' && !task.assignee) {
+        setToast({ show: true, message: 'Please select an assignee', type: 'error' })
+        return
+      }
+
+      const assigneeNames = (task.taskType === 'group' || task.taskType === 'custom')
+        ? (task.assignees || []).map(id => users.find(u => u.id === id)?.name || '').filter(Boolean).join(', ')
+        : users.find(u => u.id === task.assignee)?.name || ''
+
+      const updatePayload = {
+        ...task,
+        assigneeNames,
+        // Ensure task_members is updated for group/custom and individual tasks
+        task_members: (task.taskType === 'group' || task.taskType === 'custom') ? task.assignees : [task.assignee]
+      }
+
+      await api.updateTask(id, updatePayload)
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updatePayload } : t))
       setEditing(prev => ({ ...prev, [id]: undefined }))
       setToast({ show: true, message: 'Task updated', type: 'success' })
     } catch (e) {
@@ -159,7 +254,8 @@ export default function AdminPanel(){
   }
 
   const sortedTasks = useMemo(() => {
-    const sorted = [...tasks].sort((a,b)=>{
+    const filtered = filterType && filterType !== 'all' ? tasks.filter(t => (t.taskType || 'individual') === filterType) : tasks
+    const sorted = [...filtered].sort((a,b)=>{
       const av = (a[sortBy]||'')
       const bv = (b[sortBy]||'')
       if (sortBy === 'due' || sortBy === 'createdAt'){
@@ -174,7 +270,7 @@ export default function AdminPanel(){
       return 0
     })
     return sorted
-  }, [tasks, sortBy, sortDir])
+  }, [tasks, sortBy, sortDir, filterType])
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -205,19 +301,95 @@ export default function AdminPanel(){
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Assignee
+                  Task Type
                 </label>
                 <select
-                  value={form.assignee || ''}
-                  onChange={e => setForm({ ...form, assignee: e.target.value })}
+                  value={form.taskType}
+                  onChange={e => setForm({ ...form, taskType: e.target.value, assignees: [], assignee: '' })}
                   className="w-full p-3 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-shadow"
                 >
-                  <option value="">Select assignee</option>
-                  {users.map(user => (
-                    <option key={user.id} value={user.id}>{user.name} ({user.email})</option>
-                  ))}
+                  <option value="individual">Individual Task</option>
+                  <option value="group">Group Task</option>
+                  <option value="custom">Custom Assignment</option>
                 </select>
               </div>
+
+              {form.taskType === 'group' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Group</label>
+                  {groupOptions.length > 0 ? (
+                    <select
+                      value={form.groupId || ''}
+                      onChange={e => setForm(prev => ({ ...prev, groupId: e.target.value }))}
+                      className="w-full p-3 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-shadow"
+                    >
+                      <option value="">Select group</option>
+                {groupOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  ) : (
+                    <div className="text-sm text-gray-500">No groups detected. Ensure users have a groupId on their profiles.</div>
+                  )}
+                </div>
+              )}
+
+              {form.taskType === 'individual' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Assignee
+                  </label>
+                  <select
+                    value={form.assignee || ''}
+                    onChange={e => setForm({ ...form, assignee: e.target.value })}
+                    className="w-full p-3 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-shadow"
+                  >
+                    <option value="">Select assignee</option>
+                    {users.map(user => (
+                      <option key={user.id} value={user.id}>{user.name} ({user.email})</option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+
+              {form.taskType === 'custom' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Assign to Users</label>
+                  {console.log('Current users for select:', users)}
+                  <Select
+                    isMulti
+                    value={users.filter(u => (form.assignees || []).includes(u.id)).map(u => ({ value: u.id, label: `${u.name} (${u.email})` }))}
+                    onChange={selected => {
+                      console.log('Selected users:', selected);
+                      setForm({ ...form, assignees: (selected || []).map(s => s.value) });
+                    }}
+                    options={users.map(u => ({ value: u.id, label: `${u.name} (${u.email})` }))}
+                    placeholder="Select users to assign..."
+                    className="react-select-container"
+                    classNamePrefix="react-select"
+                    styles={{
+                      control: (base) => ({ 
+                        ...base, 
+                        minHeight: '40px',
+                        backgroundColor: 'var(--bg-input, white)',
+                        borderColor: 'var(--border-color, #e2e8f0)',
+                      }),
+                      menu: (base) => ({ 
+                        ...base, 
+                        backgroundColor: 'var(--bg-input, white)',
+                        zIndex: 50 
+                      }),
+                      option: (base, state) => ({
+                        ...base,
+                        backgroundColor: state.isFocused 
+                          ? 'var(--bg-hover, #f7fafc)'
+                          : 'transparent',
+                        ':active': {
+                          backgroundColor: 'var(--bg-active, #edf2f7)'
+                        }
+                      })
+                    }}
+                  />
+                </div>
+              )}
 
               <div className="lg:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -277,7 +449,15 @@ export default function AdminPanel(){
                 <button
                   type="button"
                   onClick={e => { e.preventDefault(); create(); }}
-                  disabled={!form.title || !form.assignee}
+                  disabled={
+                    !form.title || (
+                      form.taskType === 'individual'
+                        ? !form.assignee
+                        : form.taskType === 'group'
+                          ? !(form.groupId && groupsList.find(g => g.id === form.groupId && (g.members || []).length >= 2))
+                          : !(form.assignees && form.assignees.length >= 1)
+                    )
+                  }
                   className="px-6 py-3 text-base font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
                 >
                   Create Task
@@ -293,6 +473,15 @@ export default function AdminPanel(){
                 <div className="text-sm text-muted sm:ml-4">{tasks.length} total</div>
               </div>
               <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-600 mr-2">Filter</label>
+                  <select value={filterType} onChange={e=>setFilterType(e.target.value)} className="p-2 rounded border dark:bg-gray-800 dark:border-gray-700 text-sm">
+                    <option value="all">All</option>
+                    <option value="individual">Individual</option>
+                    <option value="group">Group</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                   <select value={assignTo} onChange={e=>setAssignTo(e.target.value)} className="flex-1 sm:flex-none p-2 text-sm rounded border dark:bg-gray-800 dark:border-gray-700">
                     <option value="">Assign selected to...</option>
@@ -379,24 +568,117 @@ export default function AdminPanel(){
                       </td>
                       <td className="p-2 align-top">
                         {editing[t.id] ? (
-                          <select
-                            value={editing[t.id].assignee || ''}
-                            onChange={e => setEditing(prev => ({
-                              ...prev,
-                              [t.id]: { ...prev[t.id], assignee: e.target.value }
-                            }))}
-                            className="w-full p-2 rounded border"
-                          >
-                            <option value="">Unassigned</option>
-                            {users.map(user => (
-                              <option key={user.id} value={user.id}>{user.name}</option>
-                            ))}
-                          </select>
+                          (t.taskType === 'group' || t.taskType === 'custom') ? (
+                            <Select
+                              isMulti
+                              value={users
+                                .filter(u => (editing[t.id].assignees || []).includes(u.id))
+                                .map(u => ({ value: u.id, label: u.name }))
+                              }
+                              onChange={selected => {
+                                const selectedUsers = selected || []
+                                setEditing(prev => ({
+                                  ...prev,
+                                  [t.id]: {
+                                    ...prev[t.id],
+                                    assignees: selectedUsers.map(s => s.value),
+                                    assigneeNames: selectedUsers.map(s => s.label).join(', ')
+                                  }
+                                }))
+                              }}
+                              options={users.map(u => ({ value: u.id, label: u.name }))}
+                              placeholder={t.taskType === 'group' ? 'Select team members...' : 'Select users...'}
+                              className="react-select-container"
+                              classNamePrefix="react-select"
+                              styles={{
+                                control: (base) => ({
+                                  ...base,
+                                  minHeight: '36px',
+                                  backgroundColor: 'var(--bg-input, white)',
+                                  borderColor: 'var(--border-color, #e2e8f0)',
+                                }),
+                                menu: (base) => ({
+                                  ...base,
+                                  backgroundColor: 'var(--bg-input, white)',
+                                  zIndex: 50
+                                }),
+                                option: (base, state) => ({
+                                  ...base,
+                                  backgroundColor: state.isFocused 
+                                    ? 'var(--bg-hover, #f7fafc)'
+                                    : 'transparent',
+                                  ':active': {
+                                    backgroundColor: 'var(--bg-active, #edf2f7)'
+                                  }
+                                })
+                              }}
+                            />
+                          ) : (
+                            <Select
+                              value={
+                                editing[t.id].assignee
+                                  ? {
+                                      value: editing[t.id].assignee,
+                                      label: users.find(u => u.id === editing[t.id].assignee)?.name || ''
+                                    }
+                                  : null
+                              }
+                              onChange={selected => {
+                                setEditing(prev => ({
+                                  ...prev,
+                                  [t.id]: {
+                                    ...prev[t.id],
+                                    assignee: selected?.value || '',
+                                    assignees: selected ? [selected.value] : [],
+                                    assigneeNames: selected?.label || ''
+                                  }
+                                }))
+                              }}
+                              options={[
+                                { value: '', label: 'Unassigned' },
+                                ...users.map(u => ({ value: u.id, label: u.name }))
+                              ]}
+                              placeholder="Select assignee..."
+                              className="react-select-container"
+                              classNamePrefix="react-select"
+                              styles={{
+                                control: (base) => ({
+                                  ...base,
+                                  minHeight: '36px',
+                                  backgroundColor: 'var(--bg-input, white)',
+                                  borderColor: 'var(--border-color, #e2e8f0)',
+                                }),
+                                menu: (base) => ({
+                                  ...base,
+                                  backgroundColor: 'var(--bg-input, white)',
+                                  zIndex: 50
+                                }),
+                                option: (base, state) => ({
+                                  ...base,
+                                  backgroundColor: state.isFocused 
+                                    ? 'var(--bg-hover, #f7fafc)'
+                                    : 'transparent',
+                                  ':active': {
+                                    backgroundColor: 'var(--bg-active, #edf2f7)'
+                                  }
+                                })
+                              }}
+                            />
+                          )
                         ) : (
-                          (() => {
-                            const u = users.find(u => u.id === t.assignee)
-                            return u ? u.name : <span className="text-gray-400">Unassigned</span>
-                          })()
+                          <div className="flex items-center gap-2">
+                            <span>{t.assigneeNames || t.assigneeName || 'Unassigned'}</span>
+                            {t.taskType === 'group' && (
+                              <span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                                {groupsList.find(g => g.id === t.groupId)?.name || 'Group'}
+                              </span>
+                            )}
+                            {t.taskType === 'custom' && (
+                              <span className="px-2 py-0.5 text-xs rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                                Custom
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
                       <td className="p-2 align-top">

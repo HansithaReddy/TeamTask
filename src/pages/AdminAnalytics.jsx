@@ -15,6 +15,9 @@ export default function AdminAnalytics() {
     let mounted = true;
     (async () => {
       try {
+        // If you have an authenticated admin, scope analytics to their group
+        const user = null
+        // attempt to get current user via client in other parts of the app; fall back to global tasks/users
         const [t, u] = await Promise.all([
           api.getTasks(),
           api.getUsers()

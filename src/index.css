@@ -2,6 +2,76 @@
 @tailwind components;
 @tailwind utilities;
 
+/* React Select Custom Styles */
+@layer components {
+  .react-select-container .react-select__control {
+    @apply border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm;
+  }
+
+  .react-select-container .react-select__control--is-focused {
+    @apply border-blue-500 ring-2 ring-blue-500/20 !important;
+  }
+
+  .react-select-container .react-select__menu {
+    @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg mt-1 !important;
+  }
+
+  .react-select-container .react-select__option {
+    @apply text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700/50 cursor-pointer;
+  }
+
+  .react-select-container .react-select__multi-value {
+    @apply bg-blue-100 dark:bg-blue-900/30 rounded-lg mr-1;
+  }
+
+  .react-select-container .react-select__multi-value__label {
+    @apply text-blue-800 dark:text-blue-200 px-2 py-1;
+  }
+
+  .react-select-container .react-select__multi-value__remove {
+    @apply text-blue-500 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800 hover:text-blue-700 dark:hover:text-blue-300 rounded-r-lg;
+  }
+
+  .react-select-container .react-select__input {
+    @apply dark:text-white;
+  }
+
+  .react-select-container .react-select__placeholder {
+    @apply text-gray-400 dark:text-gray-500;
+  }
+}
+
+/* Ensure react-select multi-values render inline and wrap properly */
+.react-select-container .react-select__value-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.react-select-container .react-select__multi-value {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+.react-select-container .react-select__multi-value__label {
+  white-space: nowrap;
+}
+
+/* Set CSS variables for dynamic theming */
+:root {
+  --bg-input: theme('colors.white');
+  --bg-hover: theme('colors.gray.100');
+  --bg-active: theme('colors.gray.200');
+  --border-color: theme('colors.gray.200');
+}
+
+.dark {
+  --bg-input: theme('colors.gray.800');
+  --bg-hover: theme('colors.gray.700');
+  --bg-active: theme('colors.gray.600');
+  --border-color: theme('colors.gray.700');
+}
+
 :root{
   --bg: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   --page-bg: #f8fafc;

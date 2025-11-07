@@ -6,7 +6,13 @@ export default function TaskCardSimple({ task, onClick }) {
     <motion.div
       whileHover={{ y: -4 }}
       onClick={onClick}
-      className="card p-4 rounded-xl smooth hover:shadow-lg cursor-pointer"
+      className={`card p-4 rounded-xl smooth hover:shadow-lg cursor-pointer relative
+        before:absolute before:inset-0 before:rounded-xl before:border-2 before:border-blue-500/50 before:transition-all
+        hover:before:border-blue-500 hover:before:scale-[1.02] ${
+        task.taskType === 'group'
+        ? 'bg-purple-50 dark:bg-purple-900/10'
+        : 'bg-blue-50 dark:bg-blue-900/10'
+      }`}
     >
       <div className="space-y-3">
         <div className="flex items-center justify-between">

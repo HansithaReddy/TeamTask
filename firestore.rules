@@ -1,0 +1,58 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users collection: users/{userId}
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      // allow admins to read other user profiles within same group via custom logic in app or Cloud Function
+      allow write: if false;
+    }
+
+    // Groups collection and nested tasks
+    match /groups/{groupId} {
+      allow read: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupId == groupId;
+
+      match /tasks/{taskId} {
+        // Read: only members of the group can read
+        allow read: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupId == groupId;
+
+        // Create: user must be authenticated and task.groupId must match their group
+        allow create: if request.auth != null
+                     && request.resource.data.groupId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupId;
+
+        // Update: only group admin or task creator may update. Additionally, modifications to task_members must only be done by group admin or task creator.
+        allow update: if request.auth != null
+                      && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupId == groupId
+                      && (
+                        // allow if updater is task creator
+                        request.auth.uid == resource.data.createdBy
+                        // or if updater is in role 'admin' in users collection
+                        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+                      )
+                      // additionally ensure groupId cannot be changed
+                      && request.resource.data.groupId == resource.data.groupId;
+
+        // Delete: only task creator or group admin
+        allow delete: if request.auth != null
+                      && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupId == groupId
+                      && (
+                        request.auth.uid == resource.data.createdBy
+                        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+                      );
+      }
+    }
+
+    // For top-level tasks collection (backwards compatibility) - require groupId checks
+    match /tasks/{taskId} {
+      allow read: if request.auth != null && request.resource == null ? true : get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupId == resource.data.groupId;
+      allow create: if request.auth != null && request.resource.data.groupId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupId;
+      allow update: if request.auth != null
+                    && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupId == resource.data.groupId
+                    && (request.auth.uid == resource.data.createdBy || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      allow delete: if request.auth != null
+                    && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupId == resource.data.groupId
+                    && (request.auth.uid == resource.data.createdBy || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+  }
+}

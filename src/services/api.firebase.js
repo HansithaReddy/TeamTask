@@ -7,7 +7,7 @@ import {
   onAuthStateChanged, 
   sendPasswordResetEmail
 } from 'firebase/auth';
-import { collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, orderBy, serverTimestamp, query, onSnapshot } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, orderBy, serverTimestamp, query, onSnapshot, where, arrayUnion, arrayRemove } from 'firebase/firestore';
 
 const USERS_COL = 'users';
 const TASKS_COL = 'tasks';
@@ -47,6 +47,15 @@ const api = {
   },
 
   async getUsers() {
+    // If a groupId is provided, only return users for that group
+    // function signature supports getUsers(groupId?)
+    const args = Array.from(arguments)
+    const groupId = args[0]
+    if (groupId) {
+      const q = query(collection(db, USERS_COL), where('groupId', '==', groupId))
+      const snap = await getDocs(q)
+      return snap.docs.map(d => ({ ...d.data(), id: d.id }))
+    }
     const snap = await getDocs(collection(db, USERS_COL));
     return snap.docs.map(d => ({ ...d.data(), id: d.id }));
   },
@@ -108,12 +117,24 @@ const api = {
   },
 
   async getTasks() {
+    // Optionally allow filtering by groupId: getTasks(groupId?)
+    const args = Array.from(arguments)
+    const groupId = args[0]
+    if (groupId) {
+      const q = query(collection(db, TASKS_COL), where('groupId', '==', groupId), orderBy('createdAt', 'desc'))
+      const snap = await getDocs(q)
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    }
     const snap = await getDocs(collection(db, TASKS_COL));
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
 
   async createTask(task) {
-    const docRef = await addDoc(collection(db, TASKS_COL), { ...task, createdAt: serverTimestamp() });
+    // ensure task has groupId - strip undefined fields before sending to Firestore
+    const payloadRaw = { ...task, createdAt: serverTimestamp() }
+    // remove undefined values because Firestore rejects them
+    const payload = Object.fromEntries(Object.entries(payloadRaw).filter(([, v]) => v !== undefined))
+    const docRef = await addDoc(collection(db, TASKS_COL), payload);
     await api.logActivity({ action: 'create', taskId: docRef.id, meta: task });
     // Attempt to return the created task with id. Note: serverTimestamp will be populated by Firestore.
     const created = { id: docRef.id, ...task };
@@ -142,7 +163,20 @@ const api = {
     if (!snap.exists()) throw new Error('Task not found');
     const data = snap.data();
     const comments = data.comments || [];
-    const c = { id: uuidv4(), text: comment.text, authorId: comment.authorId, createdAt: new Date().toISOString() };
+    
+    // Get the user's name
+    const userRef = doc(db, USERS_COL, comment.authorId);
+    const userSnap = await getDoc(userRef);
+    const userData = userSnap.data();
+    
+    const c = { 
+      id: uuidv4(), 
+      text: comment.text, 
+      authorId: comment.authorId, 
+      authorName: userData?.name || 'Unknown',
+      createdAt: new Date().toISOString() 
+    };
+    
     comments.push(c);
     await updateDoc(taskRef, { comments });
     await api.logActivity({ action: 'comment', taskId, meta: c });
@@ -150,8 +184,13 @@ const api = {
   },
 
   // Real-time listener for tasks collection. Callback receives array of tasks.
-  onTasksChanged(cb) {
-    const q = query(collection(db, TASKS_COL), orderBy('createdAt', 'desc'))
+  onTasksChanged() {
+    // signature: onTasksChanged(groupId, cb) or onTasksChanged(cb)
+    const args = Array.from(arguments)
+    let groupId, cb
+    if (args.length === 1) cb = args[0]
+    else { groupId = args[0]; cb = args[1] }
+    const q = groupId ? query(collection(db, TASKS_COL), where('groupId', '==', groupId), orderBy('createdAt', 'desc')) : query(collection(db, TASKS_COL), orderBy('createdAt', 'desc'))
     const unsub = onSnapshot(q, snap => {
       const items = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       cb(items)
@@ -159,6 +198,23 @@ const api = {
       console.warn('onTasksChanged error', err)
     })
     return unsub
+  },
+
+  // Dynamic task members
+  async addTaskMember(taskId, memberId) {
+    const ref = doc(db, TASKS_COL, taskId)
+    await updateDoc(ref, { task_members: arrayUnion(memberId), updatedAt: serverTimestamp() })
+    await api.logActivity({ action: 'add-member', taskId, meta: { memberId } })
+    const snap = await getDoc(ref)
+    return { id: snap.id, ...snap.data() }
+  },
+
+  async removeTaskMember(taskId, memberId) {
+    const ref = doc(db, TASKS_COL, taskId)
+    await updateDoc(ref, { task_members: arrayRemove(memberId), updatedAt: serverTimestamp() })
+    await api.logActivity({ action: 'remove-member', taskId, meta: { memberId } })
+    const snap = await getDoc(ref)
+    return { id: snap.id, ...snap.data() }
   },
 
   // Scaffold for notifying assignee (email). In production, hook this to Cloud Function or SMTP service.
@@ -190,6 +246,41 @@ const api = {
   async getActivity() {
     const snap = await getDocs(query(collection(db, ACTIVITY_COL), orderBy('timestamp', 'desc')));
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  },
+
+  // Groups collection helpers
+  async getGroups() {
+    const snap = await getDocs(collection(db, 'groups'))
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  },
+
+  async createGroup(group) {
+    // group: { name }
+    const payload = { ...group, createdAt: serverTimestamp() }
+    const docRef = await addDoc(collection(db, 'groups'), payload)
+    await api.logActivity({ action: 'create-group', groupId: docRef.id, meta: group })
+    return { id: docRef.id, ...group }
+  },
+  async updateGroup(id, patch) {
+    const ref = doc(db, 'groups', id)
+    await updateDoc(ref, { ...patch, updatedAt: serverTimestamp() })
+    await api.logActivity({ action: 'update-group', groupId: id, meta: patch })
+    const snap = await getDoc(ref)
+    return { id: snap.id, ...snap.data() }
+  },
+
+  async deleteGroup(id) {
+    await deleteDoc(doc(db, 'groups', id))
+    await api.logActivity({ action: 'delete-group', groupId: id })
+    return true
+  },
+
+  async setUserGroup(userId, groupId) {
+    const ref = doc(db, USERS_COL, userId)
+    await updateDoc(ref, { groupId, updatedAt: serverTimestamp() })
+    await api.logActivity({ action: 'set-user-group', userId, meta: { groupId } })
+    const snap = await getDoc(ref)
+    return { id: snap.id, ...snap.data() }
   },
 
   async logActivity(entry) {

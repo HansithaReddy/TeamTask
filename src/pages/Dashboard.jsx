@@ -21,12 +21,32 @@ export default function Dashboard(){
       const us = await api.getUsers()
       const map = {}
       us.forEach(u=> map[u.id]=u.name)
-      unsub = api.onTasksChanged(items => setTasks(items.map(it=> ({ ...it, assigneeName: it.assigneeName || map[it.assignee] || it.assignee }))))
+      unsub = api.onTasksChanged(items => setTasks(items.map(it=> {
+        const assignees = it.assignees || it.task_members || (it.assignee ? [it.assignee] : [])
+        const assigneeNames = (assignees || []).map(id => map[id] || id).filter(Boolean).join(', ')
+        const taskType = it.taskType || (assignees && assignees.length > 1 ? 'group' : 'individual')
+        return {
+          ...it,
+          assignees,
+          assigneeNames,
+          taskType,
+          assigneeName: it.assigneeName || map[it.assignee] || it.assignee
+        }
+      })))
     })()
     return () => unsub && unsub()
   }, [])
 
-  const visible = user?.role==='admin' ? tasks : tasks.filter(t => t.assignee === user?.id)
+  const visible = user?.role === 'admin' 
+    ? tasks 
+    : tasks.filter(t => {
+        // Check if user is assignee or part of assignees array
+        const isAssigned = t.assignee === user?.id || (t.assignees && t.assignees.includes(user?.id))
+        // For group tasks, check if user is in task_members
+        const isGroupMember = t.task_members && t.task_members.includes(user?.id)
+        return isAssigned || isGroupMember
+      })
+
   const filtered = visible
     .filter(t => search ? (t.title || '').toString().toLowerCase().includes(search.toLowerCase()) : true)
     .filter(t => statusFilter === 'All' ? true : (t.status || '').toString() === statusFilter)
@@ -132,14 +152,84 @@ export default function Dashboard(){
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map(t => (
-              <TaskCardSimple 
-                key={t.id} 
-                task={t} 
-                onClick={() => setSelectedTask(t)} 
-              />
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Individual Tasks Section */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col min-h-[120px] h-fit">
+              <h3 className="text-lg font-medium p-4 flex items-center gap-2 text-gray-900 dark:text-white bg-white dark:bg-gray-800 rounded-t-lg border-b border-gray-100 dark:border-gray-700 z-10">
+                <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Individual Tasks
+                <span className="text-sm text-gray-500">({filtered.filter(t => t.taskType === 'individual').length})</span>
+              </h3>
+              <div className={`flex-1 px-4 py-2 space-y-4 ${filtered.filter(t => t.taskType === 'individual').length > 2 ? 'max-h-[400px] overflow-y-auto custom-scrollbar pr-2' : ''}`}>
+                {filtered.filter(t => t.taskType === 'individual').map((t, i) => (
+                  <div key={t.id} className="animate-fade-in">
+                    <TaskCardSimple 
+                      task={t} 
+                      onClick={() => setSelectedTask(t)} 
+                    />
+                  </div>
+                ))}
+                {filtered.filter(t => t.taskType === 'individual').length === 0 && (
+                  <div className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
+                    No individual tasks found
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Group Tasks Section */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col min-h-[120px] h-fit">
+              <h3 className="text-lg font-medium p-4 flex items-center gap-2 text-gray-900 dark:text-white bg-white dark:bg-gray-800 rounded-t-lg border-b border-gray-100 dark:border-gray-700 z-10">
+                <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                Group Tasks
+                <span className="text-sm text-gray-500">({filtered.filter(t => t.taskType === 'group').length})</span>
+              </h3>
+              <div className={`flex-1 px-4 py-2 space-y-4 ${filtered.filter(t => t.taskType === 'group').length > 2 ? 'max-h-[400px] overflow-y-auto custom-scrollbar pr-2' : ''}`}>
+                {filtered.filter(t => t.taskType === 'group').map((t, i) => (
+                  <div key={t.id} className="animate-fade-in">
+                    <TaskCardSimple 
+                      task={t} 
+                      onClick={() => setSelectedTask(t)} 
+                    />
+                  </div>
+                ))}
+                {filtered.filter(t => t.taskType === 'group').length === 0 && (
+                  <div className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
+                    No group tasks found
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Custom Tasks Section */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col min-h-[120px] h-fit">
+              <h3 className="text-lg font-medium p-4 flex items-center gap-2 text-gray-900 dark:text-white bg-white dark:bg-gray-800 rounded-t-lg border-b border-gray-100 dark:border-gray-700 z-10">
+                <svg className="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                </svg>
+                Custom Tasks
+                <span className="text-sm text-gray-500">({filtered.filter(t => t.taskType === 'custom').length})</span>
+              </h3>
+              <div className={`flex-1 px-4 py-2 space-y-4 ${filtered.filter(t => t.taskType === 'custom').length > 2 ? 'max-h-[400px] overflow-y-auto custom-scrollbar pr-2' : ''}`}>
+                {filtered.filter(t => t.taskType === 'custom').map((t, i) => (
+                  <div key={t.id} className="animate-fade-in">
+                    <TaskCardSimple 
+                      task={t} 
+                      onClick={() => setSelectedTask(t)} 
+                    />
+                  </div>
+                ))}
+                {filtered.filter(t => t.taskType === 'custom').length === 0 && (
+                  <div className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
+                    No custom tasks found
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </main>
           {selectedTask && (

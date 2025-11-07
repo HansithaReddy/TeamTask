@@ -12,6 +12,7 @@ import AdminActivityLog from './pages/AdminActivityLog'
 import Analytics from './pages/Analytics'
 import UserAnalytics from './pages/UserAnalytics'
 import AdminAnalytics from './pages/AdminAnalytics'
+import Groups from './pages/Groups'
 import useAuth from './hooks/useAuth'
 
 function Protected({ children, roles }){
@@ -34,6 +35,7 @@ export default function App(){
   <Route path="/user-analytics" element={<PageWrap><Protected roles={["user","admin"]}><UserAnalytics/></Protected></PageWrap>} />
   <Route path="/admin-analytics" element={<PageWrap><Protected roles={["admin"]}><AdminAnalytics/></Protected></PageWrap>} />
         <Route path="/users" element={<PageWrap><Protected roles={["admin"]}><Users/></Protected></PageWrap>} />
+  <Route path="/groups" element={<PageWrap><Protected roles={["admin"]}><Groups/></Protected></PageWrap>} />
   <Route path="/activity" element={<PageWrap><Protected roles={["user","admin"]}><Activity/></Protected></PageWrap>} />
   <Route path="/user-activity" element={<PageWrap><Protected roles={["user","admin"]}><UserActivityLog/></Protected></PageWrap>} />
   <Route path="/admin-activity" element={<PageWrap><Protected roles={["admin"]}><AdminActivityLog/></Protected></PageWrap>} />

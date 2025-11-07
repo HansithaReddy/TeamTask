@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import useAuth from '../hooks/useAuth'
 import { motion } from 'framer-motion'
@@ -6,6 +6,9 @@ import { motion } from 'framer-motion'
 export default function Sidebar(){
   const { user } = useAuth()
   const location = useLocation()
+  const [groups, setGroups] = useState([])
+  const [showCreate, setShowCreate] = useState(false)
+  const [newGroupName, setNewGroupName] = useState('')
 
   const baseNavItems = [
     { to: '/', label: 'Dashboard', icon: (
@@ -14,7 +17,7 @@ export default function Sidebar(){
   ]
 
   const userNavItems = [
-    { to: '/my-tasks', label: 'My Tasks', icon: (
+    { to: '/my-tasks', label: 'Tasks', icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4M7 7h10M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
     ) },
     { to: '/user-activity', label: 'My Activity Log', icon: (
@@ -28,6 +31,9 @@ export default function Sidebar(){
   const adminNavItems = [
     { to: '/admin', label: 'Admin Panel', icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 11c0 3-4 5-4 5v3h8v-3s-4-2-4-5zM12 7a4 4 0 100-8 4 4 0 000 8z" /></svg>
+    ) },
+    { to: '/groups', label: 'Groups', icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7h6v6H3V7zM15 7h6v6h-6V7zM3 17h6v4H3v-4zM15 17h6v4h-6v-4z" /></svg>
     ) },
     { to: '/users', label: 'Users', icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87M15 11a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
@@ -51,6 +57,19 @@ export default function Sidebar(){
   }
 
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+
+  useEffect(()=>{
+    let mounted = true
+    ;(async ()=>{
+      if (user?.role === 'admin'){
+        try{
+          const g = await api.getGroups()
+          if (mounted) setGroups(g)
+        }catch(e){ console.warn('Failed to load groups', e) }
+      }
+    })()
+    return ()=>{ mounted = false }
+  }, [user])
 
   return (
     <>
@@ -109,6 +128,8 @@ export default function Sidebar(){
               })}
             </ul>
           </nav>
+
+          
         </div>
       </motion.aside>
     </>

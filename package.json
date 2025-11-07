@@ -7,22 +7,31 @@
     "dev": "vite",
     "build": "npx vite build",
     "preview": "vite preview",
+    "test": "vitest",
+    "test:watch": "vitest watch",
+    "test:coverage": "vitest run --coverage",
     "postinstall": "chmod +x node_modules/.bin/vite || echo 'Windows environment - skipping chmod'"
   },
   "dependencies": {
     "firebase": "^10.12.3",
+    "framer-motion": "^10.12.16",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.14.1",
     "react-hook-form": "^7.47.1",
+    "react-router-dom": "^6.14.1",
+    "react-select": "^5.10.2",
     "recharts": "^2.6.2",
-    "uuid": "^9.0.0",
-    "framer-motion": "^10.12.16"
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
-    "vite": "^5.0.0",
-    "tailwindcss": "^3.4.10",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@vitejs/plugin-react": "^5.1.0",
+    "autoprefixer": "^10.4.14",
+    "jsdom": "^27.0.1",
     "postcss": "^8.4.26",
-    "autoprefixer": "^10.4.14"
+    "tailwindcss": "^3.4.10",
+    "vite": "^5.0.0",
+    "vitest": "^4.0.5"
   }
 }
