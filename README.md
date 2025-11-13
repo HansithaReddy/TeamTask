@@ -1,38 +1,77 @@
-# Team Task Manager — Premium UI (Frontend only)
+# TeamTask 
 
-This package focuses purely on frontend UI/UX improvements inspired by swayammassey.space.
-It keeps the same Firebase backend wiring as before, so no backend changes are required.
+A sleek, responsive task management application built with React, Firebase, and Tailwind CSS. Perfect for teams looking to organize and track their tasks efficiently.
 
-Quick start:
-1. `npm install`
-2. Paste your Firebase config in `src/firebase.js`
-3. `npm run dev`
+## ✨ Key Features
 
-Notes:
-- postcss.config.cjs is used to avoid ESM/CommonJS mismatch.
-- Dark mode implemented with theme tokens; both light and dark are carefully contrasted.
-- Framer Motion used for subtle page and component transitions.
+### 🔐 User Management
+- Secure authentication with Firebase
+- Role-based access (Admin/User)
+- User profile management
 
-Serverless notification (optional)
----------------------------------
+### 📋 Task Management
+- Create, edit, and delete tasks
+- Assign tasks to team members
+- Priority levels (Low, Medium, High)
+- Status tracking (To Do, In Progress, Done)
+- Due date management
+- Task commenting system
 
-This project includes a scaffold for sending email notifications to assignees when tasks are created or reassigned. It's optional and disabled by default.
+### 👑 Admin Features
+- Comprehensive user management
+- Task overview dashboard
+- Bulk task operations
+- Activity monitoring
+- Analytics and reporting
 
-1. Example Cloud Function
-	- See `functions/sendEmail/index.js` for an example Firebase Cloud Function using SendGrid.
+### 📊 Analytics
+- Task completion rates
+- User performance metrics
+- Priority distribution charts
+- Time tracking
 
-2. Deploy and configure
-	- Deploy the function to Firebase (or any serverless host) and enable SendGrid with your API key.
-	- Set the function URL as the `NOTIFY_ENDPOINT` environment variable in your frontend build environment. Example (Windows PowerShell):
+## 🚀 Quick Start
 
-	  $env:NOTIFY_ENDPOINT = "https://us-central1-your-project.cloudfunctions.net/sendTaskNotification"
+1. **Install Dependencies**
+   ```bash
+   npm install
+   ```
 
-	- Alternatively, set `functions.config().sendgrid.key` and deploy the example function in the `functions/` folder.
+2. **Set Up Environment Variables**
+   Create a `.env` file in the root directory:
+   ```env
+   VITE_FIREBASE_API_KEY=your_api_key
+   VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
+   VITE_FIREBASE_PROJECT_ID=your_project_id
+   VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+   VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+   VITE_FIREBASE_APP_ID=your_app_id
+   VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
+   ```
 
-3. How the frontend uses it
-	- The frontend has a `notifyAssignee` helper in `src/services/api.firebase.js` which will POST `{ to, task }` to `NOTIFY_ENDPOINT` if configured.
-	- The call is non-blocking: task creation/update will still succeed even if the email fails.
+3. **Start Development Server**
+   ```bash
+   npm run dev
+   ```
 
-4. Security
-	- Keep your SendGrid API key secret (do not commit). Use Firebase functions config or environment variables on your hosting provider.
+## 💡 Technical Highlights
 
+- **Frontend**: React with Vite for fast development
+- **Styling**: Tailwind CSS for responsive design
+- **Animations**: Framer Motion for smooth transitions
+- **Backend**: Firebase (Auth & Firestore)
+- **Deployment**: Vercel-ready configuration
+
+## 🎨 Design Features
+
+- Dark/Light mode with consistent contrasts
+- Smooth animations and transitions
+- Modern, clean interface
+- Accessible design patterns
+
+## 🔒 Security Features
+
+- Secure Firebase Authentication
+- Role-based access control
+- Environment variable protection
+- Firestore security rules
